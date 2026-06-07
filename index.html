@@ -549,6 +549,48 @@ body {
 </head>
 <body>
 
+<!-- ══ LOGIN SCREEN ══ -->
+<div id="loginScreen" style="
+  position:fixed; inset:0; z-index:999;
+  background:#050403;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  padding:2rem;
+  font-family:'Tenor Sans',sans-serif;
+">
+  <div style="
+    width:100%; max-width:340px;
+    background:linear-gradient(145deg,#1c1808,#0f0d06);
+    border:1.5px solid rgba(212,168,60,.40);
+    border-radius:8px;
+    padding:2rem 1.8rem 1.8rem;
+    position:relative; overflow:hidden;
+  ">
+    <!-- gold top line -->
+    <div style="position:absolute;top:0;left:10%;right:10%;height:2px;background:linear-gradient(90deg,transparent,#f0c84a,transparent)"></div>
+    <!-- brand -->
+    <div style="text-align:center;margin-bottom:1.8rem;">
+      <div style="font-family:'IM Fell English',serif;font-style:italic;font-size:2rem;color:#f0c84a;text-shadow:0 0 30px rgba(212,168,60,.4);margin-bottom:.3rem;">Esoartia</div>
+      <div style="font-size:.58rem;letter-spacing:.3em;text-transform:uppercase;color:#685838;">Control de pedidos</div>
+    </div>
+    <!-- field -->
+    <div style="margin-bottom:1rem;">
+      <label style="display:block;font-size:.58rem;letter-spacing:.28em;text-transform:uppercase;color:#685838;margin-bottom:.4rem;">Contraseña</label>
+      <input id="loginInput" type="password"
+        style="width:100%;background:#18140c;border:1px solid rgba(212,168,60,.4);border-radius:3px;color:#ddd0a0;font-family:'Tenor Sans',sans-serif;font-size:.95rem;padding:.75rem .9rem;outline:none;"
+        placeholder="••••••••••••"
+        onkeydown="if(event.key==='Enter')checkLogin()">
+    </div>
+    <div id="loginError" style="font-size:.7rem;color:#c84040;margin-bottom:.8rem;display:none;letter-spacing:.06em;">Contraseña incorrecta</div>
+    <button onclick="checkLogin()" style="
+      width:100%;background:#d4a83c;color:#080600;
+      font-family:'Tenor Sans',sans-serif;font-size:.8rem;
+      letter-spacing:.22em;text-transform:uppercase;
+      padding:.88rem;border:none;border-radius:3px;cursor:pointer;
+    ">Entrar</button>
+  </div>
+</div>
+
 <!-- HEADER -->
 <div class="header">
   <div>
@@ -760,10 +802,34 @@ let pedidos   = [];
 //  INIT
 // ══════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
+  // ── LOGIN CHECK ──
+  if (sessionStorage.getItem('esoartia_auth') !== '1') {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('loginInput').focus();
+    return;
+  }
+  document.getElementById('loginScreen').style.display = 'none';
+  initApp();
+});
+
+function checkLogin() {
+  const val = document.getElementById('loginInput').value;
+  if (val === 'E$OARTIA2022') {
+    sessionStorage.setItem('esoartia_auth', '1');
+    document.getElementById('loginScreen').style.display = 'none';
+    initApp();
+  } else {
+    document.getElementById('loginError').style.display = 'block';
+    document.getElementById('loginInput').value = '';
+    document.getElementById('loginInput').focus();
+  }
+}
+
+async function initApp() {
   addCaja();
   updateTotal();
   await cargarPedidos();
-});
+}
 
 // ══════════════════════════════════════
 //  TABS
