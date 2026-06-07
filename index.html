@@ -495,6 +495,29 @@ body {
 .pedido-status.produccion { color: #80c0e0; border-color: rgba(80,160,200,.4); background: rgba(80,160,200,.08); }
 .pedido-status.listo { color: var(--green); border-color: rgba(74,154,74,.4); background: rgba(74,154,74,.08); }
 .pedido-status.entregado { color: var(--txt3); border-color: var(--bdr); background: transparent; }
+.pedido-status.cancelado { color: var(--red); border-color: rgba(200,64,64,.4); background: rgba(200,64,64,.08); }
+
+/* status dropdown */
+.status-select {
+  background: transparent;
+  border: 1px solid;
+  border-radius: 20px;
+  font-family: 'Tenor Sans', sans-serif;
+  font-size: .6rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: .25rem .6rem;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  text-align: center;
+}
+.status-select.pendiente  { color: var(--gold);   border-color: rgba(212,168,60,.4);  background: rgba(212,168,60,.08); }
+.status-select.produccion { color: #80c0e0;        border-color: rgba(80,160,200,.4);  background: rgba(80,160,200,.08); }
+.status-select.listo      { color: var(--green);   border-color: rgba(74,154,74,.4);   background: rgba(74,154,74,.08); }
+.status-select.entregado  { color: var(--txt3);    border-color: var(--bdr);           background: transparent; }
+.status-select.cancelado  { color: var(--red);     border-color: rgba(200,64,64,.4);   background: rgba(200,64,64,.08); }
 
 .pedido-body {
   padding: .6rem 1rem .7rem;
@@ -968,15 +991,15 @@ function buildResumenText() {
   const prepStr   = preparadas ? '✨ Preparadas' : '🕯️ Sin preparar';
 
   let lines = [
-    `━━━━━━━━━━━━━━━━━━━━━━`,
+    `━━━━━━━━━━━━━━━━`,
     `  ESOARTIA — PEDIDO`,
-    `━━━━━━━━━━━━━━━━━━━━━━`,
+    `━━━━━━━━━━━━━━━━`,
     `Cliente:  ${tel}`,
     `Destino:  ${ciudad}`,
     `Entrega:  ${metodoStr}`,
     `Veladora: ${prepStr}`,
     `Total:    $${total} MXN`,
-    `──────────────────────`,
+    `──────────────`,
   ];
   cajas.forEach((caja, idx) => {
     lines.push(`CAJA ${idx+1}:`);
@@ -986,9 +1009,9 @@ function buildResumenText() {
       const nota = document.getElementById(`nota-${caja.id}-${n}`)?.value || '';
       lines.push(`  ${n}. ${t||'(vacío)'}${c?' / '+c:''}${nota?' · '+nota:''}`);
     });
-    if (idx < cajas.length-1) lines.push(`──────────────────────`);
+    if (idx < cajas.length-1) lines.push(`──────────────`);
   });
-  lines.push(`━━━━━━━━━━━━━━━━━━━━━━`);
+  lines.push(`━━━━━━━━━━━━━━━━`);
   return lines.join('\n');
 }
 
@@ -1061,8 +1084,14 @@ function resetForm() {
 // ══════════════════════════════════════
 //  CARGAR Y RENDER PEDIDOS
 // ══════════════════════════════════════
-const STATUS_LABELS = { pendiente:'Pendiente', produccion:'En producción', listo:'Listo', entregado:'Entregado' };
-const STATUS_NEXT   = { pendiente:'produccion', produccion:'listo', listo:'entregado', entregado:'pendiente' };
+const STATUS_LABELS = {
+  pendiente: 'Pendiente',
+  produccion: 'En producción',
+  listo: 'Listo',
+  entregado: 'Entregado',
+  cancelado: 'Cancelado',
+};
+const STATUS_ORDER = ['pendiente', 'produccion', 'listo', 'entregado', 'cancelado'];
 
 async function cargarPedidos() {
   const list = document.getElementById('pedidosList');
@@ -1082,20 +1111,56 @@ function renderPedidos() {
     list.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div>Sin pedidos guardados aún</div>`;
     return;
   }
-  list.innerHTML = pedidos.map(p => {
+
+  // Sort pedidos by STATUS_ORDER, then by date desc within each group
+  const sorted = [...pedidos].sort((a, b) => {
+    const si = STATUS_ORDER.indexOf(a.status);
+    const sj = STATUS_ORDER.indexOf(b.status);
+    if (si !== sj) return si - sj;
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
+
+  let html = '';
+  let lastStatus = null;
+
+  sorted.forEach(p => {
+    // Group header
+    if (p.status !== lastStatus) {
+      lastStatus = p.status;
+      const colors = {
+        pendiente:  'color:var(--gold)',
+        produccion: 'color:#80c0e0',
+        listo:      'color:var(--green)',
+        entregado:  'color:var(--txt3)',
+        cancelado:  'color:var(--red)',
+      };
+      html += `
+        <div style="display:flex;align-items:center;gap:8px;margin:1rem 0 .5rem;${lastStatus!=='pendiente'?'margin-top:1.5rem':''}">
+          <div style="flex:1;height:1px;background:var(--bdr)"></div>
+          <div style="font-size:.58rem;letter-spacing:.28em;text-transform:uppercase;${colors[p.status]}">${STATUS_LABELS[p.status]}</div>
+          <div style="flex:1;height:1px;background:var(--bdr)"></div>
+        </div>`;
+    }
+
     const fecha = new Date(p.created_at).toLocaleDateString('es-MX');
     const hora  = new Date(p.created_at).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
     const prep  = p.preparadas ? '✨' : '🕯️';
-    return `
+    const opts  = STATUS_ORDER.map(s =>
+      `<option value="${s}" ${p.status===s?'selected':''}>${STATUS_LABELS[s]}</option>`
+    ).join('');
+
+    html += `
     <div class="pedido-item" id="pi-${p.id}">
       <div class="pedido-item-header">
         <div>
           <div class="pedido-tel">${p.tel}</div>
           <div class="pedido-meta">${p.ciudad} · ${fecha} ${hora} · $${p.total} ${prep}</div>
         </div>
-        <div class="pedido-status ${p.status}" onclick="event.stopPropagation();nextStatus(${p.id})">
-          ${STATUS_LABELS[p.status]}
-        </div>
+        <select class="status-select ${p.status}" id="sel-${p.id}"
+          onchange="event.stopPropagation();changeStatus(${p.id},this.value)"
+          onclick="event.stopPropagation()">
+          ${opts}
+        </select>
       </div>
       <div class="pedido-body" id="pb-${p.id}">
         <div class="pedido-detail">${p.resumen}</div>
@@ -1105,22 +1170,26 @@ function renderPedidos() {
         </div>
       </div>
     </div>`;
-  }).join('');
+  });
 
-  pedidos.forEach(p => {
+  list.innerHTML = html;
+
+  sorted.forEach(p => {
     document.getElementById(`pi-${p.id}`)?.addEventListener('click', () => {
       document.getElementById(`pb-${p.id}`).classList.toggle('open');
     });
   });
 }
 
-async function nextStatus(id) {
+async function changeStatus(id, nuevo) {
   const p = pedidos.find(x => x.id === id);
   if (!p) return;
-  const nuevo = STATUS_NEXT[p.status];
   try {
     await sbUpdate(id, { status: nuevo });
     p.status = nuevo;
+    // update select color class
+    const sel = document.getElementById(`sel-${id}`);
+    if (sel) { sel.className = `status-select ${nuevo}`; }
     renderPedidos();
   } catch(err) { alert('Error: ' + err.message); }
 }
